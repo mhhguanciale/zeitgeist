@@ -24,7 +24,7 @@ QUICK_TEST = IS_DEV # If True, run quickly on first few predictions; useful for 
 ENABLE_CITATIONS = False
 
 BATCH_REQUEST_DELAY_SECONDS = 5
-RATE_LIMIT_BACKOFF_SECONDS = 10
+RATE_LIMIT_WAIT_SECONDS = 10
 
 BATCH_SIZE = 100
 RETRIES = 3
@@ -71,11 +71,13 @@ assert not(IS_PROD and QUICK_TEST), "QUICK_TEST must be False in GitHub Actions"
 
 ########################################################################################################
 
-async def sleep_if_rate_limit(response: httpx.Response, prefix: str) -> bool:
+async def sleep_if_rate_limit(response: httpx.Response) -> bool:
     if response.status_code != 429:
         return False
-    log.warning(f"{prefix} rate limited (429); backing off...")
-    await asyncio.sleep(RATE_LIMIT_BACKOFF_SECONDS)
+    log.warning(
+        f"Sleeping for {RATE_LIMIT_WAIT_SECONDS}s since we got {response.status_code} from {response.url}..."
+    )
+    await asyncio.sleep(RATE_LIMIT_WAIT_SECONDS)
     return True
 
 async def fetch_from_kalshi() -> pl.DataFrame:
@@ -100,7 +102,7 @@ async def fetch_from_kalshi() -> pl.DataFrame:
             log.info(f"Fetching from kalshi @ offset={len(predictions)} ...")
             try:
                 resp = await client.get(f"{API_URL}/events", params=params)
-                if await sleep_if_rate_limit(resp, "Kalshi"):
+                if await sleep_if_rate_limit(resp):
                     continue
                 resp.raise_for_status()
                 data = resp.json()
@@ -135,7 +137,7 @@ async def fetch_from_polymarket() -> pl.DataFrame:
             log.info(f"Fetching from polymarket @ offset={params['offset']} ...")
             try:
                 resp = await client.get(f"{API_URL}/markets", params=params)
-                if await sleep_if_rate_limit(resp, "Polymarket"):
+                if await sleep_if_rate_limit(resp):
                     continue
                 resp.raise_for_status()
                 data = resp.json()
