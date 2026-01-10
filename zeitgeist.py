@@ -24,6 +24,7 @@ QUICK_TEST = IS_DEV # If True, run quickly on first few predictions; useful for 
 ENABLE_CITATIONS = False
 
 BATCH_REQUEST_DELAY_SECONDS = 5
+RATE_LIMIT_BACKOFF_SECONDS = 10
 
 BATCH_SIZE = 100
 RETRIES = 3
@@ -31,6 +32,7 @@ RETRIES = 3
 CLASSIFYING_MODEL = "openai:gpt-5-mini-2025-08-07"
 EVENTS_MODEL = "openai:gpt-5.1-2025-11-13"
 SYNTHESIS_MODEL = "openai:gpt-4.1-2025-04-14"
+
 
 today = date.today()
 
@@ -69,6 +71,13 @@ assert not(IS_PROD and QUICK_TEST), "QUICK_TEST must be False in GitHub Actions"
 
 ########################################################################################################
 
+async def sleep_if_rate_limit(response: httpx.Response, prefix: str) -> bool:
+    if response.status_code != 429:
+        return False
+    log.warning(f"{prefix} rate limited (429); backing off...")
+    await asyncio.sleep(RATE_LIMIT_BACKOFF_SECONDS)
+    return True
+
 async def fetch_from_kalshi() -> pl.DataFrame:
     LIMIT = 100
     API_URL = "https://api.elections.kalshi.com/trade-api/v2"
@@ -91,6 +100,8 @@ async def fetch_from_kalshi() -> pl.DataFrame:
             log.info(f"Fetching from kalshi @ offset={len(predictions)} ...")
             try:
                 resp = await client.get(f"{API_URL}/events", params=params)
+                if await sleep_if_rate_limit(resp, "Kalshi"):
+                    continue
                 resp.raise_for_status()
                 data = resp.json()
                 predictions.extend(data["events"])
@@ -124,6 +135,8 @@ async def fetch_from_polymarket() -> pl.DataFrame:
             log.info(f"Fetching from polymarket @ offset={params['offset']} ...")
             try:
                 resp = await client.get(f"{API_URL}/markets", params=params)
+                if await sleep_if_rate_limit(resp, "Polymarket"):
+                    continue
                 resp.raise_for_status()
                 data = resp.json()
                 predictions.extend(data)
