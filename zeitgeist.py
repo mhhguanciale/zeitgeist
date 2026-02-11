@@ -22,6 +22,8 @@ IS_DEV = not IS_PROD
 QUICK_TEST = IS_DEV # If True, run quickly on first few predictions; useful for smoke-testing
 
 ENABLE_CITATIONS = False
+ENABLE_POLYMARKET = True
+ENABLE_KALSHI = False
 
 BATCH_REQUEST_DELAY_SECONDS = 5
 RATE_LIMIT_WAIT_SECONDS = 10
@@ -252,7 +254,14 @@ def get_news() -> pl.DataFrame | None:
         return None
 
 async def main():
-    predictions = pl.concat(await asyncio.gather(fetch_from_kalshi(), fetch_from_polymarket()))
+    sources = []
+    if ENABLE_KALSHI:
+        sources.append(fetch_from_kalshi())
+    if ENABLE_POLYMARKET:
+        sources.append(fetch_from_polymarket())
+    assert sources, "At least one market source must be enabled"
+
+    predictions = pl.concat(await asyncio.gather(*sources))
     log.info(f"Total = {len(predictions)} predictions")
 
     tagged_predictions, events, news, fred_data = await asyncio.gather(
