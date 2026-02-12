@@ -24,6 +24,7 @@ QUICK_TEST = IS_DEV # If True, run quickly on first few predictions; useful for 
 ENABLE_CITATIONS = False
 ENABLE_POLYMARKET = True
 ENABLE_KALSHI = False
+MAX_POLYMARKETS = 500
 
 BATCH_REQUEST_DELAY_SECONDS = 5
 RATE_LIMIT_WAIT_SECONDS = 10
@@ -146,6 +147,10 @@ async def fetch_from_polymarket() -> pl.DataFrame:
                 predictions.extend(data)
             except Exception as e:
                 log.error(f"Stopping because of error from Polymarket: {e}")
+                data = None
+            if MAX_POLYMARKETS and len(predictions) >= MAX_POLYMARKETS:
+                log.info(f"Reached MAX_POLYMARKETS={MAX_POLYMARKETS}; stopping polymarket fetch")
+                predictions = predictions[:MAX_POLYMARKETS]
                 data = None
             if not data or (QUICK_TEST and len(predictions) > LIMIT):
                 log.info(f"Fetched {len(predictions)} from polymarket")
