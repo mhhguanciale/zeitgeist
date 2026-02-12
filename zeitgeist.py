@@ -32,8 +32,7 @@ RATE_LIMIT_WAIT_SECONDS = 10
 BATCH_SIZE = 100
 RETRIES = 3
 
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").strip().lower()
-assert LLM_PROVIDER in {"openai", "gemini"}, "LLM_PROVIDER must be either 'openai' or 'gemini'"
+LLM_PROVIDER = "gemini"
 
 CLASSIFYING_MODEL = "openai:gpt-5-mini-2025-08-07"
 EVENTS_MODEL = "openai:gpt-5.1-2025-11-13"
